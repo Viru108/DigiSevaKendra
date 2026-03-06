@@ -1,0 +1,541 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+    #map {
+        height: 380px;
+        border-radius: 20px;
+    }
+
+    .glass-input {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    /* Location search section */
+    .location-section {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .location-method-tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 1.25rem;
+        flex-wrap: wrap;
+    }
+
+    .loc-tab {
+        padding: 8px 18px;
+        border-radius: 30px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1.5px solid rgba(255, 255, 255, 0.18);
+        background: transparent;
+        color: inherit;
+        transition: all 0.2s;
+    }
+
+    .loc-tab.active,
+    .loc-tab:hover {
+        background: var(--bs-primary, #6c63ff);
+        border-color: var(--bs-primary, #6c63ff);
+        color: #fff;
+    }
+
+    /* Search box with suggestions */
+    .search-wrapper {
+        position: relative;
+    }
+
+    .search-wrapper .search-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #aaa;
+        font-size: 1rem;
+        pointer-events: none;
+    }
+
+    .search-wrapper input {
+        padding-left: 2.4rem !important;
+    }
+
+    #address-suggestions {
+        position: absolute;
+        z-index: 9999;
+        width: 100%;
+        top: calc(100% + 4px);
+        background: #1e1e2e;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 12px;
+        max-height: 240px;
+        overflow-y: auto;
+        display: none;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .suggestion-item {
+        padding: 10px 16px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        transition: background 0.15s;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .suggestion-item:last-child {
+        border-bottom: none;
+    }
+
+    .suggestion-item:hover,
+    .suggestion-item.highlighted {
+        background: rgba(108, 99, 255, 0.25);
+    }
+
+    .suggestion-item i {
+        margin-top: 2px;
+        flex-shrink: 0;
+        color: #6c63ff;
+    }
+
+    /* Pincode row */
+    .pincode-search-btn {
+        white-space: nowrap;
+    }
+
+    /* GPS btn */
+    #gps-btn {
+        border: 1.5px solid rgba(255, 255, 255, 0.2);
+        background: transparent;
+        color: inherit;
+        border-radius: 10px;
+        padding: 10px 18px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        width: 100%;
+        justify-content: center;
+    }
+
+    #gps-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    #gps-btn.loading {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+
+    /* Confirmed address badge */
+    #location-confirmed {
+        display: none;
+        font-size: 0.82rem;
+        margin-top: 8px;
+    }
+
+    /* Map overlay message */
+    .map-hint {
+        font-size: 0.78rem;
+        color: #888;
+        margin-top: 8px;
+        text-align: center;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="glass-card p-5">
+                <h2 class="fw-bold mb-4">Report an Infrastructure Issue</h2>
+                <form method="post" enctype="multipart/form-data" id="complaint-form">
+                    {% csrf_token %}
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label small fw-bold">Department</label>
+                            {{ form.department }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label small fw-bold">Category</label>
+                            {{ form.category }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Issue Description</label>
+                        {{ form.description }}
+                    </div>
+
+                    <!-- ═══════════════════ LOCATION SECTION ═══════════════════ -->
+                    <div class="location-section">
+                        <label class="form-label small fw-bold d-block mb-3">
+                            <i class="bi bi-geo-alt-fill text-primary me-1"></i> Location of Issue
+                        </label>
+
+                        <!-- Method tabs -->
+                        <div class="location-method-tabs">
+                            <button type="button" class="loc-tab active" onclick="showMethod('search')" id="tab-search">
+                                <i class="bi bi-search me-1"></i> Search Address
+                            </button>
+                            <button type="button" class="loc-tab" onclick="showMethod('pincode')" id="tab-pincode">
+                                <i class="bi bi-mailbox me-1"></i> Enter Pincode
+                            </button>
+                            <button type="button" class="loc-tab" onclick="showMethod('gps')" id="tab-gps">
+                                <i class="bi bi-crosshair me-1"></i> GPS / My Location
+                            </button>
+                        </div>
+
+                        <!-- METHOD 1 : Search address -->
+                        <div id="method-search">
+                            <div class="search-wrapper mb-2">
+                                <i class="bi bi-search search-icon"></i>
+                                <input type="text" id="address-search-input" class="form-control glass-input"
+                                    placeholder="Type your street, area, city…" autocomplete="off">
+                                <div id="address-suggestions"></div>
+                            </div>
+                            <p class="small text-muted mb-0">
+                                <i class="bi bi-info-circle"></i> Type at least 3 characters — suggestions appear
+                                automatically.
+                            </p>
+                        </div>
+
+                        <!-- METHOD 2 : Pincode lookup -->
+                        <div id="method-pincode" style="display:none;">
+                            <div class="input-group mb-2">
+                                <span class="input-group-text glass-input">
+                                    <i class="bi bi-mailbox"></i>
+                                </span>
+                                <input type="text" id="pincode-input" class="form-control glass-input"
+                                    placeholder="Enter 6-digit pincode e.g. 560001" maxlength="10">
+                                <button type="button" class="btn btn-primary pincode-search-btn"
+                                    onclick="searchByPincode()">
+                                    <i class="bi bi-search me-1"></i> Find
+                                </button>
+                            </div>
+                            <p class="small text-muted mb-0">
+                                <i class="bi bi-info-circle"></i> Enter your pincode to zoom the map to your area, then
+                                refine with the pin.
+                            </p>
+                        </div>
+
+                        <!-- METHOD 3 : GPS -->
+                        <div id="method-gps" style="display:none;">
+                            <button type="button" id="gps-btn" onclick="useGPS()">
+                                <i class="bi bi-crosshair2"></i> Detect My Current Location
+                            </button>
+                            <p class="small text-muted mt-2 mb-0">
+                                <i class="bi bi-info-circle"></i> Your browser will ask for location permission.
+                            </p>
+                        </div>
+
+                        <!-- Confirmed address badge -->
+                        <div id="location-confirmed" class="alert alert-success py-2 mt-3">
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                            <span id="confirmed-text">Location set</span>
+                            <span class="text-muted small ms-2" id="confirmed-coords"></span>
+                        </div>
+
+                        <!-- Map -->
+                        <div id="map" class="mt-3"></div>
+                        <p class="map-hint">
+                            <i class="bi bi-pin-map"></i> You can also click on the map or drag the pin to fine-tune.
+                        </p>
+                    </div>
+                    <!-- ═══════════════════ END LOCATION ═══════════════════ -->
+
+                    <!-- Address + Pincode (visible, editable, synced) -->
+                    <div class="row">
+                        <div class="col-md-9 mb-3">
+                            <label class="form-label small fw-bold">Full Address <span
+                                    class="text-muted fw-normal">(auto-filled or edit manually)</span></label>
+                            {{ form.formatted_address }}
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label small fw-bold">Pincode</label>
+                            {{ form.pincode }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Landmark (Optional)</label>
+                        {{ form.landmark }}
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold">Upload Evidence (Photo)</label>
+                        {{ form.before_image }}
+                    </div>
+
+                    {{ form.latitude }}
+                    {{ form.longitude }}
+
+                    <button type="submit" class="btn-glass w-100 py-3">
+                        <i class="bi bi-send-fill me-2"></i>Submit Complaint
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-4 mt-4 mt-lg-0">
+            <div class="glass-card p-4 mb-4">
+                <h5 class="fw-bold mb-3"><i class="bi bi-lightbulb text-warning me-2"></i>How to Set Location</h5>
+                <ol class="small text-muted ps-3">
+                    <li class="mb-2"><strong>Search Address</strong> — type your road/area name and pick from the
+                        dropdown.</li>
+                    <li class="mb-2"><strong>Pincode</strong> — enter your pincode and click Find; the map zooms to your
+                        area.</li>
+                    <li class="mb-2"><strong>GPS</strong> — let the browser detect your exact coordinates automatically.
+                    </li>
+                    <li><strong>Map pin</strong> — drag or click the pin to fine-tune after any method above.</li>
+                </ol>
+            </div>
+            <div class="glass-card p-4">
+                <h5 class="fw-bold mb-3">Guidelines</h5>
+                <ul class="small text-muted">
+                    <li>Ensure the photo clearly shows the issue.</li>
+                    <li>Double check the map pin for accurate technician routing.</li>
+                    <li>Priority is auto-calculated based on history and category.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        /* ── Map init ── */
+        var defaultLat = parseFloat("{{ user.city.latitude|default:'20.5937' }}");
+        var defaultLng = parseFloat("{{ user.city.longitude|default:'78.9629' }}");
+
+        var map = L.map('map').setView([defaultLat, defaultLng], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        var marker = L.marker([defaultLat, defaultLng], { draggable: true }).addTo(map);
+
+        /* ── Core: set lat/lng + reverse geocode ── */
+        function setLocation(lat, lng, knownAddress) {
+            lat = parseFloat(lat).toFixed(6);
+            lng = parseFloat(lng).toFixed(6);
+
+            document.getElementById('id_latitude').value = lat;
+            document.getElementById('id_longitude').value = lng;
+
+            marker.setLatLng([lat, lng]);
+            map.setView([lat, lng], 16);
+
+            if (knownAddress) {
+                fillAddress(knownAddress, lat, lng);
+            } else {
+                // Reverse geocode
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        fillAddress(data.display_name, lat, lng);
+                        if (data.address && data.address.postcode) {
+                            document.getElementById('id_pincode').value = data.address.postcode;
+                        }
+                    })
+                    .catch(() => { });
+            }
+        }
+
+        function fillAddress(addr, lat, lng) {
+            document.getElementById('id_formatted_address').value = addr;
+            document.getElementById('location-confirmed').style.display = 'block';
+            document.getElementById('confirmed-text').textContent = addr.length > 60 ? addr.slice(0, 60) + '…' : addr;
+            document.getElementById('confirmed-coords').textContent = `${lat}, ${lng}`;
+        }
+
+        /* ── Map click / drag ── */
+        map.on('click', function (e) { setLocation(e.latlng.lat, e.latlng.lng); });
+        marker.on('dragend', function (e) { setLocation(e.target.getLatLng().lat, e.target.getLatLng().lng); });
+
+        /* ── METHOD TABS ── */
+        window.showMethod = function (method) {
+            ['search', 'pincode', 'gps'].forEach(m => {
+                document.getElementById('method-' + m).style.display = (m === method) ? '' : 'none';
+                document.getElementById('tab-' + m).classList.toggle('active', m === method);
+            });
+            setTimeout(() => map.invalidateSize(), 50);
+        };
+
+        /* ════════════════════════════════════════════
+           METHOD 1 — Address search with suggestions
+        ════════════════════════════════════════════ */
+        var searchInput = document.getElementById('address-search-input');
+        var suggestionsBox = document.getElementById('address-suggestions');
+        var searchTimer = null;
+
+        searchInput.addEventListener('input', function () {
+            clearTimeout(searchTimer);
+            var q = this.value.trim();
+            if (q.length < 3) { suggestionsBox.style.display = 'none'; return; }
+
+            searchTimer = setTimeout(function () {
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=6&addressdetails=1`)
+                    .then(r => r.json())
+                    .then(results => {
+                        suggestionsBox.innerHTML = '';
+                        if (!results.length) {
+                            suggestionsBox.style.display = 'none';
+                            return;
+                        }
+                        results.forEach(function (r) {
+                            var item = document.createElement('div');
+                            item.className = 'suggestion-item';
+                            item.innerHTML = `<i class="bi bi-geo-alt-fill"></i><span>${r.display_name}</span>`;
+                            item.addEventListener('click', function () {
+                                searchInput.value = r.display_name;
+                                suggestionsBox.style.display = 'none';
+                                setLocation(r.lat, r.lon, r.display_name);
+                                // Auto-fill pincode if present
+                                if (r.address && r.address.postcode) {
+                                    document.getElementById('id_pincode').value = r.address.postcode;
+                                }
+                            });
+                            suggestionsBox.appendChild(item);
+                        });
+                        suggestionsBox.style.display = 'block';
+                    })
+                    .catch(() => { suggestionsBox.style.display = 'none'; });
+            }, 400); // 400ms debounce
+        });
+
+        // Close suggestions when clicking outside
+        document.addEventListener('click', function (e) {
+            if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
+                suggestionsBox.style.display = 'none';
+            }
+        });
+
+        // Keyboard navigation in suggestions
+        var highlightIndex = -1;
+        searchInput.addEventListener('keydown', function (e) {
+            var items = suggestionsBox.querySelectorAll('.suggestion-item');
+            if (e.key === 'ArrowDown') {
+                highlightIndex = Math.min(highlightIndex + 1, items.length - 1);
+            } else if (e.key === 'ArrowUp') {
+                highlightIndex = Math.max(highlightIndex - 1, 0);
+            } else if (e.key === 'Enter' && highlightIndex >= 0) {
+                e.preventDefault();
+                items[highlightIndex].click();
+            } else if (e.key === 'Escape') {
+                suggestionsBox.style.display = 'none';
+            } else { return; }
+            items.forEach((it, i) => it.classList.toggle('highlighted', i === highlightIndex));
+        });
+
+        /* ════════════════════════════════════
+           METHOD 2 — Pincode search
+        ════════════════════════════════════ */
+        window.searchByPincode = function () {
+            var pin = document.getElementById('pincode-input').value.trim();
+            if (!pin) { alert('Please enter a pincode.'); return; }
+
+            // Also sync to the form's pincode field
+            document.getElementById('id_pincode').value = pin;
+
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pin + ', India')}&limit=1&addressdetails=1`)
+                .then(r => r.json())
+                .then(results => {
+                    if (results.length) {
+                        var r = results[0];
+                        setLocation(r.lat, r.lon, r.display_name);
+                    } else {
+                        alert('Could not find location for this pincode. Try the Search Address tab.');
+                    }
+                })
+                .catch(() => alert('Network error while searching pincode.'));
+        };
+
+        // Allow pressing Enter in pincode input
+        document.getElementById('pincode-input').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); searchByPincode(); }
+        });
+
+        /* ════════════════════════════════════
+           METHOD 3 — GPS
+        ════════════════════════════════════ */
+        window.useGPS = function () {
+            if (!navigator.geolocation) {
+                alert('Your browser does not support GPS location.');
+                return;
+            }
+            var btn = document.getElementById('gps-btn');
+            btn.classList.add('loading');
+            btn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Detecting…';
+
+            navigator.geolocation.getCurrentPosition(
+                function (pos) {
+                    setLocation(pos.coords.latitude, pos.coords.longitude);
+                    btn.classList.remove('loading');
+                    btn.innerHTML = '<i class="bi bi-crosshair2"></i> Detect My Current Location';
+                },
+                function (err) {
+                    btn.classList.remove('loading');
+                    btn.innerHTML = '<i class="bi bi-crosshair2"></i> Detect My Current Location';
+                    alert('Could not detect location: ' + err.message);
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        };
+
+        /* ── Category dynamic load ── */
+        function updateCategories() {
+            const deptId = document.getElementById('id_department').value;
+            const catSelect = document.getElementById('id_category');
+            catSelect.innerHTML = '<option>Loading…</option>';
+
+            fetch(`/complaints/api/categories/?department_id=${deptId}`)
+                .then(res => res.json())
+                .then(data => {
+                    catSelect.innerHTML = '';
+                    data.forEach(cat => {
+                        const option = document.createElement('option');
+                        option.value = cat.id;
+                        option.textContent = cat.name;
+                        catSelect.appendChild(option);
+                    });
+                })
+                .catch(err => console.error('Failed to load categories:', err));
+        }
+
+        document.getElementById('id_department').addEventListener('change', updateCategories);
+        if (document.getElementById('id_department').value) { updateCategories(); }
+
+        setTimeout(function () { map.invalidateSize(); }, 100);
+    });
+</script>
+<style>
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .spin {
+        display: inline-block;
+        animation: spin 1s linear infinite;
+    }
+</style>
+{% endblock %}

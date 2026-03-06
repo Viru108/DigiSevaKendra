@@ -1,0 +1,223 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-5 gap-3">
+        <div>
+            <h1 class="fw-bold fs-2">Technician Workspace</h1>
+            <p class="text-muted mb-0">Assigned to: {{ user.department.name }} | {{ user.city.name }}</p>
+        </div>
+        <div class="glass-card px-4 py-2 d-flex align-items-center">
+            <div class="bg-success rounded-circle me-2" style="width: 10px; height: 10px;"></div>
+            <span class="small fw-bold">Active</span>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-5">
+        <div class="col-md-3">
+            <div class="glass-card p-4">
+                <h6 class="text-muted small text-uppercase">New Tasks</h6>
+                <p class="fs-2 fw-bold mb-0 text-primary">{{ assigned_tasks.count }}</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="glass-card p-4">
+                <h6 class="text-muted small text-uppercase">Resolved (Lifetime)</h6>
+                <p class="fs-2 fw-bold mb-0 text-success">{{ resolved_count }}</p>
+            </div>
+        </div>
+    </div>
+
+    <h3 class="fw-bold mb-4">Assigned Tasks</h3>
+    <div class="glass-card p-0 overflow-hidden">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+            <thead class="bg-light bg-opacity-10">
+                <tr>
+                    <th class="ps-4">Ticket ID</th>
+                    <th>Category</th>
+                    <th>Priority</th>
+                    <th>Deadline</th>
+                    <th class="text-end pe-4">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in assigned_tasks %}
+                <tr class="align-middle">
+                    <td class="ps-4">
+                        <span class="fw-bold text-primary">{{ task.ticket_id }}</span><br>
+                        <small class="text-muted">{{ task.status }}</small>
+                    </td>
+                    <td>{{ task.category.name }}</td>
+                    <td>
+                        <span
+                            class="badge bg-{% if task.priority == 'HIGH' %}danger{% elif task.priority == 'MEDIUM' %}warning{% else %}info{% endif %} bg-opacity-10 text-dark">
+                            {{ task.priority }}
+                        </span>
+                    </td>
+                    <td class="{% if task.sla_breached %}text-danger fw-bold{% endif %}">
+                        {{ task.sla_deadline|timeuntil }} left
+                    </td>
+                    <td class="text-end pe-4">
+                        <!-- View Details Button — modal rendered BELOW the table -->
+                        <button type="button"
+                                class="btn btn-sm btn-outline-primary rounded-pill px-3 me-1"
+                                data-bs-toggle="modal"
+                                data-bs-target="#taskModal{{ forloop.counter }}">
+                            <i class="bi bi-eye me-1"></i>Details
+                        </button>
+                        <a href="{% url 'resolve_complaint_tech' task.ticket_id %}"
+                            class="btn btn-sm btn-success rounded-pill px-3">
+                            <i class="bi bi-camera me-1"></i> Mark Resolved
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr class="align-middle">
+                    <td colspan="5" class="py-5 text-center text-muted">
+                        No active complaints assigned to you.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODALS — placed OUTSIDE the table so they render correctly
+     ═══════════════════════════════════════════════════════════ -->
+{% for task in assigned_tasks %}
+<div class="modal fade" id="taskModal{{ forloop.counter }}" tabindex="-1"
+     aria-labelledby="taskModalLabel{{ forloop.counter }}" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 1rem; overflow: hidden;">
+
+            <!-- Header -->
+            <div class="modal-header border-0 pb-0"
+                 style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                <div>
+                    <h5 class="modal-title fw-bold text-white" id="taskModalLabel{{ forloop.counter }}">
+                        <i class="bi bi-tools me-2"></i>{{ task.ticket_id }}
+                    </h5>
+                    <p class="text-white text-opacity-75 small mb-0">
+                        {{ task.category.name }} &mdash; {{ task.department.name }}
+                    </p>
+                </div>
+                <div class="ms-auto d-flex align-items-center gap-2">
+                    <span class="badge rounded-pill
+                        {% if task.priority == 'HIGH' %}bg-danger
+                        {% elif task.priority == 'MEDIUM' %}bg-warning text-dark
+                        {% else %}bg-info text-dark{% endif %} px-3 py-2">
+                        {{ task.get_priority_display }} Priority
+                    </span>
+                    <button type="button" class="btn-close btn-close-white ms-2"
+                            data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="modal-body p-4">
+
+                <!-- Citizen's Complaint Photo -->
+                {% if task.before_image %}
+                <div class="mb-4">
+                    <h6 class="fw-bold text-muted text-uppercase small mb-2">
+                        <i class="bi bi-camera-fill me-1 text-primary"></i>Citizen's Complaint Photo
+                    </h6>
+                    <div class="rounded-3 overflow-hidden border" style="max-height: 320px;">
+                        <img src="{{ task.before_image.url }}"
+                             alt="Complaint photo"
+                             class="w-100"
+                             style="max-height: 320px; object-fit: cover;">
+                    </div>
+                </div>
+                {% else %}
+                <div class="mb-4 p-3 rounded-3 text-center text-muted"
+                     style="background: rgba(0,0,0,0.03); border: 1px dashed rgba(0,0,0,0.1);">
+                    <i class="bi bi-image fs-3 d-block mb-1"></i>No photo uploaded
+                </div>
+                {% endif %}
+
+                <!-- Description -->
+                <div class="mb-4">
+                    <h6 class="fw-bold text-muted text-uppercase small mb-2">
+                        <i class="bi bi-card-text me-1"></i>Problem Description
+                    </h6>
+                    <p class="mb-0">{{ task.description }}</p>
+                </div>
+
+                <!-- Meta grid -->
+                <div class="row g-3 mb-4">
+                    <div class="col-sm-6">
+                        <div class="p-3 rounded-3" style="background: rgba(16,185,129,0.07);">
+                            <div class="small text-muted mb-1">Status</div>
+                            <span class="badge rounded-pill
+                                {% if task.status == 'PENDING' %}bg-warning text-dark
+                                {% elif task.status == 'ASSIGNED' %}bg-primary
+                                {% elif task.status == 'IN_PROGRESS' %}bg-info text-dark
+                                {% else %}bg-success{% endif %} px-3">
+                                {{ task.get_status_display }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="p-3 rounded-3 {% if task.sla_breached %}bg-danger bg-opacity-10{% else %}bg-light{% endif %}">
+                            <div class="small text-muted mb-1">SLA Deadline</div>
+                            <div class="fw-bold small {% if task.sla_breached %}text-danger{% endif %}">
+                                {{ task.sla_deadline|date:"d M Y, H:i" }}
+                                {% if task.sla_breached %}
+                                <span class="badge bg-danger ms-1">Breached</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="p-3 rounded-3" style="background: rgba(16,185,129,0.07);">
+                            <div class="small text-muted mb-1">Filed On</div>
+                            <div class="fw-bold small">{{ task.created_at|date:"d M Y, H:i" }}</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="p-3 rounded-3" style="background: rgba(16,185,129,0.07);">
+                            <div class="small text-muted mb-1">Citizen</div>
+                            <div class="fw-bold small">{{ task.citizen.full_name }}</div>
+                            <div class="small text-muted">{{ task.citizen.phone }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Location -->
+                <div>
+                    <h6 class="fw-bold text-muted text-uppercase small mb-2">
+                        <i class="bi bi-geo-alt-fill me-1 text-danger"></i>Location
+                    </h6>
+                    <p class="mb-1">{{ task.formatted_address }}</p>
+                    {% if task.landmark %}
+                    <p class="mb-1 small text-muted">
+                        <i class="bi bi-pin-map me-1"></i>Landmark: {{ task.landmark }}
+                    </p>
+                    {% endif %}
+                    <p class="mb-0 small text-muted">
+                        <i class="bi bi-mailbox me-1"></i>Pincode: {{ task.pincode }}
+                    </p>
+                </div>
+
+            </div>
+
+            <!-- Footer -->
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4"
+                        data-bs-dismiss="modal">Close</button>
+                <a href="{% url 'resolve_complaint_tech' task.ticket_id %}"
+                   class="btn btn-success rounded-pill px-4">
+                    <i class="bi bi-camera me-1"></i>Mark as Resolved
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% endblock %}

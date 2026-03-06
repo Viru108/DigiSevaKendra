@@ -1,0 +1,11 @@
+Django>=6.0.0
+django-phonenumber-field[phonenumbers]
+psycopg2-binary
+Pillow
+cloudinary
+django-cloudinary-storage
+djangorestframework
+requests
+django-bootstrap5
+django-cors-headers
+django-extensions

@@ -1,0 +1,6 @@
+DEBUG: Found 2 technicians in Hubli/Road Maintenance
+--- Task VERIF-BUSY-0 assigned to mona nashedi (Status: ASSIGNED)
+--- Task VERIF-BUSY-1 assigned to veena aunty (Status: ASSIGNED)
+--- Extra Task Status: PENDING (Expected: PENDING)
+--- Handled Task VERIF-BUSY-0. Technician mona nashedi is now free.
+--- Extra Task Status after freeing tech: ASSIGNED, Assigned To: mona nashedi
