@@ -13,7 +13,10 @@ rm -rf staticfiles
 python manage.py collectstatic --noinput
 python manage.py migrate
 python create_admin.py
+<<<<<<< HEAD
 
+=======
+>>>>>>> ed9a743ae40ff6c5c1318a3acda992d0f4889eb5
 # Sanity check for logs
 echo "Static file collection summary (staticfiles folder):"
 ls -R staticfiles | head -n 30
