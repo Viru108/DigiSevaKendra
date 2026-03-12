@@ -21,16 +21,35 @@ def register_view(request):
     return render(request, 'accounts/register.html', {'form': form})
 
 
+from django.db import connection
+
 def login_view(request):
     if request.method == 'POST':
-        form = AuthenticationForm(data=request.POST)
-        if form.is_valid():
-            user = form.get_user()
+        user_input = request.POST.get('username')
+        pass_input = request.POST.get('password')
+
+        # 1. SQL Injection Bypass Check (Educational)
+        # We use raw SQL to simulate how ' OR 1=1 -- bypasses the check
+        if "' OR" in user_input or "--" in user_input:
+            with connection.cursor() as cursor:
+                sql = f"SELECT id FROM accounts_customuser WHERE username = '{user_input}'"
+                cursor.execute(sql)
+                user_row = cursor.fetchone()
+                if user_row:
+                    user = CustomUser.objects.get(id=user_row[0])
+                    login(request, user)
+                    messages.warning(request, "Vulnerability exploited: Logged in via SQli!")
+                    return redirect('dashboard')
+
+        # 2. Standard Authentication (This allows Brute Force to work)
+        user = authenticate(request, username=user_input, password=pass_input)
+        if user is not None:
             login(request, user)
             return redirect('dashboard')
-    else:
-        form = AuthenticationForm()
-    return render(request, 'accounts/login.html', {'form': form})
+        else:
+            messages.error(request, "Invalid credentials.")
+    
+    return render(request, 'accounts/login.html')
 
 
 def logout_view(request):

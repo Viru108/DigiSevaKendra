@@ -23,15 +23,14 @@
                     </div>
                     {% endif %}
 
-                    {% for field in form %}
                     <div class="mb-4 form-group-premium">
-                        <label class="form-label-premium">{{ field.label }}</label>
-                        {{ field }}
-                        {% if field.errors %}
-                        <div class="text-danger small mt-1">{{ field.errors }}</div>
-                        {% endif %}
+                        <label class="form-label-premium">Username</label>
+                        <input type="text" name="username" class="form-control-premium" placeholder="Username" required>
                     </div>
-                    {% endfor %}
+                    <div class="mb-4 form-group-premium">
+                        <label class="form-label-premium">Password</label>
+                        <input type="password" name="password" class="form-control-premium" placeholder="Password" required>
+                    </div>
                     <button type="submit" class="btn-glass w-100 py-3 mt-3">Sign In</button>
                 </form>
 

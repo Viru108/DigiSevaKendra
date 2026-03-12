@@ -6,5 +6,6 @@ urlpatterns = [
     path('api/categories/', views.get_categories, name='get_categories'),
     path('status/update/<str:ticket_id>/', status_views.update_complaint_status, name='update_complaint_status'),
     path('resolve/<str:ticket_id>/', views.resolve_complaint, name='resolve_complaint_tech'),
+    path('view/<int:pk>/', views.view_complaint_vulnerable, name='view_complaint_vulnerable'),
 ]
 

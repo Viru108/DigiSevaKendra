@@ -89,3 +89,12 @@ def resolve_complaint(request, ticket_id):
         'form': form,
         'complaint': complaint
     })
+@login_required
+def view_complaint_vulnerable(request, pk):
+    # VULNERABLE: No check to ensure this complaint belongs to request.user
+    # IDOR vulnerability exists here
+    complaint = get_object_or_404(Complaint, pk=pk)
+    
+    return render(request, 'complaints/view_complaint.html', {
+        'complaint': complaint
+    })
