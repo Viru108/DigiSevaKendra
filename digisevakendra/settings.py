@@ -147,6 +147,28 @@ STORAGES = {
     },
 }
 
+# Reliability settings
+WHITENOISE_MANIFEST_STRICT = False
+CSRF_TRUSTED_ORIGINS = [
+    'https://digisevakendra.onrender.com',
+    'https://digi-seva-kendra.vercel.app'
+]
+
+# Error Logging
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
+
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 # Using local file storage for development.
