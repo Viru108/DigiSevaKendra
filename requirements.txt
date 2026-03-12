@@ -10,3 +10,5 @@ django-bootstrap5
 django-cors-headers
 django-extensions
 gunicorn
+dj-database-url
+whitenoise
