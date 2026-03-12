@@ -133,20 +133,16 @@ USE_TZ = True
 
 
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [
-    BASE_DIR / 'static',
-    BASE_DIR / 'core' / 'static',
-]
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'core', 'static')]
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
-    },
-}
+# Use WhiteNoise's simplest storage for maximum reliability
+STATICFILES_STORAGE = 'whitenoise.storage.WhiteNoiseStorage'
+
+# Diagnostic prints (visible in Render logs)
+print(f"DEBUG is: {DEBUG}")
+print(f"BASE_DIR is: {BASE_DIR}")
+print(f"STATIC_ROOT is: {STATIC_ROOT}")
 
 # Reliability settings
 WHITENOISE_MANIFEST_STRICT = False
