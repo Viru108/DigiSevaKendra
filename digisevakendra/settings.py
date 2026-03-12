@@ -57,6 +57,7 @@ AUTH_USER_MODEL = 'accounts.CustomUser'
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.middleware.gzip.GZipMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -149,6 +150,7 @@ STORAGES = {
 
 # Reliability settings
 WHITENOISE_MANIFEST_STRICT = False
+WHITENOISE_USE_FINDERS = True  # Fallback to direct file searching
 CSRF_TRUSTED_ORIGINS = [
     'https://digisevakendra.onrender.com',
     'https://digi-seva-kendra.vercel.app'
