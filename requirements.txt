@@ -9,3 +9,4 @@ requests
 django-bootstrap5
 django-cors-headers
 django-extensions
+gunicorn
